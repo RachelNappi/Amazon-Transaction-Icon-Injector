@@ -17,7 +17,7 @@ A Tampermonkey userscript that improves the Amazon **Transactions** page
 
 ## Install
 
-1. Install [Tampermonkey](https://www.tampermonkey.net/) for your browser.
+1. Install [Tampermonkey](https://www.tampermonkey.net/) for your browser. **NOTE:** On mobile, Edge Canary is the primary option which allows user script installs. This code has only been tested on mobile with Edge Canary, both in desktop and mobile view. 
 2. Click this link to install the script:
    `https://raw.githubusercontent.com/<your-username>/<repo-name>/main/amazon-transactions-icon-injector.user.js`
    (Tampermonkey will detect the `.user.js` file and prompt you to install it.)
