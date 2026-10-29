@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Amazon Mobile Transactions Icon Injector
+// @name         Amazon Mobile Transactions Icon Injector (Complete)
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      3
 // @match        https://*.amazon.com/cpe/yourpayments/transactions*
 // @grant        GM_xmlhttpRequest
 // @connect      amazon.com
@@ -13,11 +13,17 @@
 
     let lastUrl = window.location.href;
 
+    // Amazon rewrote this page (Oct 2026) as a React/RN-web app. Transactions
+    // no longer live in `.a-row`/`.a-column` markup with real orderID/oid
+    // links - each transaction is now an <a data-testid="transaction-link">
+    // whose href is just "#". The order number is still present as plain
+    // text though ("Order #111-5142457-4751412"), so we rebuild the order
+    // details URL from that instead of reading it off a link.
     function injectTransactionIcons() {
-        // Core structural fix: If the URL changes via pagination, reset tracking flags
+        // Core structural fix: If the URL changes via pagination/navigation, reset tracking flags
         if (window.location.href !== lastUrl) {
             lastUrl = window.location.href;
-            document.querySelectorAll('a[data-icons-loaded]').forEach(el => {
+            document.querySelectorAll('[data-icons-loaded]').forEach(el => {
                 el.removeAttribute('data-icons-loaded');
             });
             document.querySelectorAll('[data-amount-restyled]').forEach(el => {
@@ -28,22 +34,29 @@
             });
         }
 
-        const orderLinks = document.querySelectorAll('a[href*="orderID="]:not([data-icons-loaded]), a[href*="oid="]:not([data-icons-loaded])');
-        if (orderLinks.length === 0) return;
+        const transactionLinks = document.querySelectorAll('a[data-testid="transaction-link"]:not([data-icons-loaded])');
+        if (transactionLinks.length === 0) return;
 
-        orderLinks.forEach(link => {
-            const href = link.getAttribute('href');
-            const match = href.match(/[?&](?:orderID|oid)=([^&]+)/);
-            if (!match) return;
-
-            const rowContainer = link.closest('.a-row');
-            if (!rowContainer) return;
+        transactionLinks.forEach(link => {
+            // Find the order number text within this transaction card
+            const textNodes = link.querySelectorAll('[data-testid="text"]');
+            let orderId = null;
+            for (const node of textNodes) {
+                const match = node.textContent.match(/Order #(\d{3}-\d{7}-\d{7})/);
+                if (match) {
+                    orderId = match[1];
+                    break;
+                }
+            }
+            if (!orderId) return;
 
             // Immediately mark to prevent processing loops
             link.setAttribute('data-icons-loaded', 'true');
 
-            const absoluteUrl = href.startsWith('http') ? href : window.location.origin + href;
-            fetchOrderImages(absoluteUrl, rowContainer);
+            const contentWrapper = link.querySelector('[data-testid="transaction-link-content-wrapper-outline"]') || link;
+
+            const absoluteUrl = `https://www.amazon.com/gp/css/summary/edit.html?orderID=${orderId}`;
+            fetchOrderImages(absoluteUrl, contentWrapper);
         });
     }
 
@@ -108,6 +121,10 @@
     // Moves the transaction amount above the payment method, left-aligned,
     // and bumps its font size. Targets the two-column row containing the
     // payment method name (a-span9) and the dollar amount (a-span3, right-aligned).
+    // NOTE: this matched Amazon's PRE-October-2026 markup. The current page
+    // no longer uses this structure, so this function is now a harmless
+    // no-op (its selectors simply won't match anything). Left in place in
+    // case Amazon reverts, or for future rework.
     function restyleTransactionAmounts() {
         const rows = document.querySelectorAll('.a-row:not([data-amount-restyled])');
 
@@ -162,6 +179,8 @@
 
     // Tags each transaction's line-item container with the payment method
     // it was billed to, so it can be selectively hidden later.
+    // NOTE: same PRE-October-2026-markup caveat as restyleTransactionAmounts()
+    // above - currently a no-op on the live page.
     function tagPaymentMethods() {
         const rows = document.querySelectorAll('.a-row:not([data-payment-tagged])');
 
@@ -193,6 +212,8 @@
 
     // Inserts the toggle button right after the "view your gift card balance
     // and activity" row, if it hasn't been inserted already.
+    // NOTE: same PRE-October-2026-markup caveat - currently a no-op since
+    // Amazon no longer links directly to /gc/balance from this page.
     function insertToggleButton() {
         if (document.getElementById('apx-hide-visa-points-toggle')) return;
 
